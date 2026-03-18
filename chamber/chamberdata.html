@@ -350,7 +350,7 @@
     </div>
 </div>
 
-<script>
+<
     (function() {
         // ---------- Configuración y estado ----------
         const MAX_HISTORY = 200;               // puntos guardados
@@ -363,13 +363,15 @@
         let chart;
 
         // ---------- Inicialización de Firebase (reemplaza con tus credenciales) ----------
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",               // <-- REEMPLAZA con tu apiKey
-            authDomain: "YOUR_AUTH_DOMAIN",       // <-- REEMPLAZA con tu authDomain
-            projectId: "simchamber-648d9",         // ID del proyecto proporcionado
-            storageBucket: "YOUR_STORAGE_BUCKET",  // <-- REEMPLAZA
-            messagingSenderId: "YOUR_SENDER_ID",   // <-- REEMPLAZA
-            appId: "YOUR_APP_ID"                   // <-- REEMPLAZA
+          apiKey: "AIzaSyDQFnXOHwCDi3KnwmtyIjVcP7PqatjUAZU",
+          authDomain: "simchamber-648d9.firebaseapp.com",
+          projectId: "simchamber-648d9",
+          storageBucket: "simchamber-648d9.firebasestorage.app",
+          messagingSenderId: "442337134737",
+          appId: "1:442337134737:web:24c2f6ae6a63a16cb9d730",
+          measurementId: "G-ZHLJ4J9PPL"
         };
 
         let db; // referencia a Firestore
@@ -758,6 +760,15 @@
         // Simulación automática (opcional - comentado por defecto)
         // setInterval(() => { agregarPunto(false); }, 2000);
     })();
-</script>
+                {
+  "timestamp": "<Firestore Timestamp>", // Clave para item #2, ordenamiento
+  "vibration_motor_mm_s": <número>,    // Item #1
+  "temperature_motor_C": <número>,     // Item #1
+  "current_motor_A": <número>,         // Ejemplo de otro sensor
+  "rpm_motor": <número>,               // Ejemplo de otro sensor
+  // Añade aquí todos los valores crudos de los sensores que tu simulación genere
+}
+
+</
 </body>
 </html>
