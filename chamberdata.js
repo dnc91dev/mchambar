@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulación Mina · Sensor Chamber + Firestore</title>
+    <!-- Chart.js, Font Awesome y Firebase SDK (compat) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Firebase (versión 9 compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background: #eef2f5;
+            padding: 24px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 2rem;
+            font-weight: 500;
+            color: #1e3a5f;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        h1 i {
+            color: #f39c12;
+        }
+        .sub {
+            color: #2c3e50;
+            margin-bottom: 28px;
+            border-left: 5px solid #e67e22;
+            padding-left: 16px;
+            background: #fff9f0;
+            border-radius: 0 12px 12px 0;
+            line-height: 1.5;
+        }
+        /* Tarjetas de código ↔ físico */
+        .grid-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 18px 16px;
+            box-shadow: 0 8px 20px rgba(0,20,40,0.06);
+            border: 1px solid rgba(0,0,0,0.03);
+            transition: 0.2s;
+            border-top: 4px solid #3498db;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 28px rgba(0,0,0,0.1);
+        }
+        .card .codigo {
+            font-family: 'Courier New', monospace;
+            background: #f4f6f9;
+            padding: 6px 12px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            color: #c0392b;
+            display: inline-block;
+            margin-bottom: 12px;
+            border: 1px solid #d0d7de;
+        }
+        .card .fisico {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #1e3a5f;
+            margin-bottom: 8px;
+        }
+        .card .desc {
+            font-size: 0.9rem;
+            color: #2c3e50;
+            opacity: 0.85;
+        }
+        .card i {
+            margin-right: 6px;
+            color: #e67e22;
+        }
+
+        /* Panel de datos en vivo */
+        .panel-datos {
+            background: white;
+            border-radius: 28px;
+            padding: 24px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+            border: 1px solid #e2e8f0;
+        }
+        .sensores-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            justify-content: space-between;
+        }
+        .sensor-card {
+            background: #f8fafd;
+            border-radius: 24px;
+            padding: 20px;
+            flex: 1 1 180px;
+            text-align: center;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.02);
+        }
+        .sensor-card .label {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #5d6d7e;
+        }
+        .sensor-card .value {
+            font-size: 2.4rem;
+            font-weight: 600;
+            color: #1e3a5f;
+            line-height: 1.2;
+        }
+        .sensor-card .unit {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+        .features-panel {
+            margin-top: 28px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            background: #f0f4fa;
+            border-radius: 20px;
+            padding: 20px;
+        }
+        .feature-item {
+            flex: 1 1 150px;
+        }
+        .feature-item .label {
+            font-size: 0.85rem;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+        .feature-item .number {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #0b3b5c;
+        }
+
+        /* probabilidades y alerta */
+        .ensemble-row {
+            display: flex;
+            gap: 24px;
+            margin: 24px 0 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .prob-box {
+            background: #edf2f7;
+            border-radius: 40px;
+            padding: 12px 24px;
+            font-weight: 600;
+            min-width: 150px;
+            text-align: center;
+        }
+        .prob-box span {
+            font-size: 1.8rem;
+            margin-left: 8px;
+            color: #2c3e50;
+        }
+        .alerta {
+            padding: 12px 28px;
+            border-radius: 60px;
+            font-weight: 700;
+            font-size: 1.3rem;
+            background: #27ae60;
+            color: white;
+        }
+        .alerta.roja { background: #c0392b; }
+        .alerta.amarilla { background: #f39c12; color: #1e1e1e; }
+
+        /* grafico */
+        .chart-container {
+            margin: 30px 0 20px;
+            height: 240px;
+        }
+        .botonera {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .btn {
+            background: white;
+            border: 1px solid #b0c4d9;
+            padding: 14px 28px;
+            border-radius: 40px;
+            font-weight: 600;
+            color: #1e3a5f;
+            cursor: pointer;
+            transition: 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.02);
+        }
+        .btn:hover {
+            background: #d9e6f2;
+            border-color: #3498db;
+        }
+        .btn.primary {
+            background: #1e3a5f;
+            color: white;
+            border: none;
+        }
+        .btn.primary:hover {
+            background: #12314e;
+        }
+        .footer-note {
+            margin-top: 40px;
+            font-size: 0.9rem;
+            color: #4a5b6b;
+            text-align: center;
+            border-top: 1px dashed #b0c4d9;
+            padding-top: 24px;
+        }
+        i.fa-solid, i.fa-regular { margin-right: 6px; }
+        .firebase-status {
+            background: #e8f0fe;
+            border-radius: 40px;
+            padding: 6px 18px;
+            display: inline-block;
+            margin-left: 20px;
+            font-size: 0.9rem;
+            border: 1px solid #abc0d0;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>
+        <i class="fas fa-hard-hat"></i> Sensor Chamber · Transportador 3
+        <span class="firebase-status" id="fbStatus"><i class="fa-solid fa-cloud-arrow-up"></i> Conectando a Firestore...</span>
+    </h1>
+    <div class="sub">
+        <i class="fas fa-code-branch"></i> Simulación interactiva: cada línea del código Python tiene un "eco" físico en la mina. 
+        Los datos fluyen desde sensores IoT hasta la alerta en Control Room. <strong>¡Ahora con envío a Firestore en batches!</strong>
+    </div>
+
+    <!-- 8 tarjetas representando los ítems del mapeo (código ↔ físico) -->
+    <div class="grid-cards">
+        <div class="card">
+            <div class="codigo"><i class="fas fa-file-code"></i> df = pd.read_parquet(...)</div>
+            <div class="fisico"><i class="fas fa-database"></i> Data Lake / sensores en vivo</div>
+            <div class="desc">SCADA e IoT envían vibración, temp, corriente, RPM cada segundo. El dato crudo llega al datalake.</div>
+        </div>
+        <div class="card">
+            <div class="codigo"><i class="fas fa-file-code"></i> df.sort_values('timestamp')</div>
+            <div class="fisico"><i class="fas fa-clock"></i> Secuencia temporal en tiempo real</div>
+            <div class="desc">Ordena los eventos para reflejar el "ahora" de la mina (últimos segundos).</div>
+        </div>
+        <div class="card">
+            <div class="codigo"><i class="fas fa-file-code"></i> rolling, diff, ratio</div>
+            <div class="fisico"><i class="fas fa-microchip"></i> Procesamiento en edge / servidor</div>
+            <div class="desc">Transforma señales crudas: media 30 min, delta temp 1h, ratio corriente/vib.</div>
+        </div>
+        <div class="card">
+            <div class="codigo"><i class="fas fa-file-code"></i> fillna(method='ffill')</div>
+            <div class="fisico"><i class="fas fa-wifi-slash"></i> Pérdida momentánea de señal</div>
+            <div class="desc">Polvo / interferencia: el sistema rellena con último valor válido.</div>
+        </div>
+        <div class="card">
+            <div class="codigo"><i class="fas fa-file-code"></i> predict_proba_ensemble()</div>
+            <div class="fisico"><i class="fas fa-brain"></i> Motor de inferencia combinado</div>
+            <div class="desc">Fusión XGBoost+LSTM que genera probabilidad de fallo en tiempo real.</div>
+        </div>
+        <div class="card">
+            <div class="codigo"><i class="fas fa-file-code"></i> xgb.predict_proba(X)[:,1]</div>
+            <div class="fisico"><i class="fas fa-chart-line"></i> Predicción XGBoost (instante actual)</div>
+            <div class="desc">Evalúa el estado presente: vibración, temp, corriente ahora.</div>
+        </div>
+        <div class="card">
+            <div class="codigo"><i class="fas fa-file-code"></i> lstm.predict(seq)</div>
+            <div class="fisico"><i class="fas fa-wave-square"></i> LSTM (ventana 60 min)</div>
+            <div class="desc">Detecta tendencias lentas: últimas 60 lecturas, subidas progresivas.</div>
+        </div>
+        <div class="card">
+            <div class="codigo"><i class="fas fa-file-code"></i> 0.7*xgb + 0.3*lstm</div>
+            <div class="fisico"><i class="fas fa-desktop"></i> Dashboard Control Room / app</div>
+            <div class="desc">Decisión final en vivo: alerta al operador si > 0.80.</div>
+        </div>
+    </div>
+
+    <!-- Panel principal de datos en tiempo real -->
+    <div class="panel-datos">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+            <h3 style="font-weight: 400;"><i class="fas fa-gauge-high" style="color:#e67e22;"></i> LECTURAS EN VIVO (último tick)</h3>
+            <span id="timestampLabel" style="background: #edf2f7; padding: 8px 20px; border-radius: 40px;"><i class="far fa-clock"></i> --</span>
+        </div>
+
+        <!-- Sensores crudos -->
+        <div class="sensores-row">
+            <div class="sensor-card"><div class="label"><i class="fas fa-vibration"></i> Vibración</div><div class="value" id="vib_val">0.00</div><div class="unit">mm/s</div></div>
+            <div class="sensor-card"><div class="label"><i class="fas fa-temperature-high"></i> Temperatura</div><div class="value" id="temp_val">0.0</div><div class="unit">°C</div></div>
+            <div class="sensor-card"><div class="label"><i class="fas fa-bolt"></i> Corriente</div><div class="value" id="corriente_val">0.0</div><div class="unit">A</div></div>
+            <div class="sensor-card"><div class="label"><i class="fas fa-tachometer-alt"></i> RPM</div><div class="value" id="rpm_val">0</div><div class="unit">rpm</div></div>
+        </div>
+
+        <!-- Features calculadas (procesamiento) -->
+        <div class="features-panel">
+            <div class="feature-item"><span class="label"><i class="fas fa-chart-bar"></i> vib_media_30min</span><div class="number" id="vib_media">0.00</div></div>
+            <div class="feature-item"><span class="label"><i class="fas fa-arrow-up"></i> delta_temp_1h</span><div class="number" id="delta_temp">0.00</div></div>
+            <div class="feature-item"><span class="label"><i class="fas fa-divide"></i> ratio corriente/vib</span><div class="number" id="ratio">0.00</div></div>
+        </div>
+
+        <!-- Predicciones ensemble y alerta -->
+        <div class="ensemble-row">
+            <div class="prob-box">XGB <span id="xgb_prob">0.00</span></div>
+            <div class="prob-box">LSTM <span id="lstm_prob">0.00</span></div>
+            <div class="prob-box">Ensemble <span id="ens_prob">0.00</span></div>
+            <div id="alerta_estado" class="alerta"><i class="fa-solid fa-circle-check"></i> NORMAL</div>
+        </div>
+
+        <!-- Gráfico de tendencia (últimos 60 puntos) -->
+        <div class="chart-container">
+            <canvas id="trendChart"></canvas>
+        </div>
+
+        <!-- Botones de simulación -->
+        <div class="botonera">
+            <button class="btn primary" id="btnNuevoDato"><i class="fa-solid fa-rotate"></i> Nuevos datos (siguiente segundo)</button>
+            <button class="btn" id="btnPerdida"><i class="fa-solid fa-wave-square"></i> Simular pérdida de dato (ffill)</button>
+            <button class="btn" id="btnReset"><i class="fa-solid fa-arrow-rotate-left"></i> Reiniciar simulación</button>
+        </div>
+        <p style="margin-top: 16px; font-size:0.85rem; background:#f9f2e7; padding:6px 18px; border-radius: 40px;"><i class="fa-solid fa-circle-exclamation"></i> Umbral dinámico: >0.80 → <span style="color:#c0392b;">alerta roja</span> · 0.50–0.80 → <span style="color:#f39c12;">amarilla</span> · &lt;0.50 → verde</p>
+        <p style="margin-top: 8px; font-size:0.85rem; background:#e6f7e6; padding:4px 18px; border-radius: 40px;"><i class="fa-solid fa-fire"></i> Firestore: los datos se envían cada 3 segundos o cada 50 lecturas a la colección "sensor_data"</p>
+    </div>
+
+    <div class="footer-note">
+        <i class="fa-regular fa-rectangle-code"></i> Simulación didáctica — cada bloque de código tiene su representación física en las tarjetas superiores. 
+        Los modelos XGB/LSTM se simulan con heurísticas para ilustrar el flujo.
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ---------- Configuración y estado ----------
+        const MAX_HISTORY = 200;               // puntos guardados
+        const WINDOW_ROLLING = 30;              // simula 30 min (en realidad 30 seg para demo)
+        const DIFF_PERIODS = 60;                 // simula 1h (60 puntos atrás)
+        const LSTM_SEQ_LEN = 20;                 // ventana para pseudo-LSTM
+
+        // Estado central
+        let historico = [];                      // array de objetos {timestamp, vib, temp, corriente, rpm, missing}
+        let chart;
+
+        // ---------- Inicialización de Firebase (reemplaza con tus credenciales) ----------
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",               // <-- REEMPLAZA con tu apiKey
+            authDomain: "YOUR_AUTH_DOMAIN",       // <-- REEMPLAZA con tu authDomain
+            projectId: "simchamber-648d9",         // ID del proyecto proporcionado
+            storageBucket: "YOUR_STORAGE_BUCKET",  // <-- REEMPLAZA
+            messagingSenderId: "YOUR_SENDER_ID",   // <-- REEMPLAZA
+            appId: "YOUR_APP_ID"                   // <-- REEMPLAZA
+        };
+
+        let db; // referencia a Firestore
+        let firebaseInicializado = false;
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            firebaseInicializado = true;
+            document.getElementById('fbStatus').innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Firestore listo';
+            console.log('Firestore inicializado correctamente');
+        } catch (e) {
+            console.error('Error al inicializar Firebase:', e);
+            document.getElementById('fbStatus').innerHTML = '<i class="fa-solid fa-cloud-exclamation"></i> Error en Firestore (credenciales)';
+        }
+
+        // ---------- Buffer y control de envío a Firestore ----------
+        let sensorDataBuffer = [];
+        const BATCH_SIZE = 50;                // máximo documentos por batch
+        const SEND_INTERVAL_MS = 3000;         // enviar cada 3 segundos si hay datos
+        let lastSendTime = Date.now();
+
+        // Función para añadir un punto al buffer (se llama desde agregarPunto)
+        function addToFirestoreBuffer(snapshot) {
+            if (!firebaseInicializado) return; // no hacer nada si no hay conexión
+
+            // snapshot debe contener: timestamp, valores filled, features, predicciones
+            sensorDataBuffer.push(snapshot);
+
+            // Verificar si debemos enviar por tamaño
+            if (sensorDataBuffer.length >= BATCH_SIZE) {
+                sendBufferedDataToFirestore();
+                lastSendTime = Date.now();
+            } else {
+                // También comprobamos el intervalo de tiempo (lo hace el setInterval)
+            }
+        }
+
+        // Función asíncrona para enviar el buffer a Firestore
+        async function sendBufferedDataToFirestore() {
+            if (!firebaseInicializado || sensorDataBuffer.length === 0) return;
+
+            const batch = db.batch();
+            const dataToSend = [...sensorDataBuffer]; // copia
+            sensorDataBuffer = []; // vaciar inmediatamente
+
+            dataToSend.forEach(data => {
+                const docRef = db.collection("sensor_data").doc(); // ID automático
+                batch.set(docRef, data);
+            });
+
+            try {
+                await batch.commit();
+                console.log(`✅ Enviados ${dataToSend.length} documentos a Firestore`);
+            } catch (error) {
+                console.error("❌ Error al enviar batch:", error);
+                // Opcional: re-añadir al buffer? por simplicidad, no lo hacemos
+            }
+        }
+
+        // Comprobación periódica para enviar por tiempo
+        setInterval(() => {
+            if (!firebaseInicializado) return;
+            const now = Date.now();
+            if (sensorDataBuffer.length > 0 && (now - lastSendTime >= SEND_INTERVAL_MS)) {
+                sendBufferedDataToFirestore();
+                lastSendTime = now;
+            }
+        }, 1000); // comprobar cada segundo
+
+        // Al cerrar la página, intentar enviar lo que quede
+        window.addEventListener('beforeunload', () => {
+            if (sensorDataBuffer.length > 0) {
+                // notar: sendBufferedDataToFirestore es asíncrona, pero beforeunload no espera.
+                // Para maximizar posibilidad, usamos keepalive? no es crítico.
+                sendBufferedDataToFirestore();
+            }
+        });
+
+        // ---------- Funciones de simulación (generación de datos) ----------
+        function generarValorBase(prev, property, base, ruido, tendencia = 0) {
+            if (!prev) return base + (Math.random() - 0.5) * ruido * 2;
+            let cambio = (Math.random() - 0.5) * ruido + tendencia;
+            return Math.max(0, prev[property] + cambio);
+        }
+
+        function generarPunto(prevPoint, missing = false) {
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString() + '.' + now.getMilliseconds();
+
+            if (missing && prevPoint) {
+                return {
+                    timestamp,
+                    vib: prevPoint.vib_filled,
+                    temp: prevPoint.temp_filled,
+                    corriente: prevPoint.corriente_filled,
+                    rpm: prevPoint.rpm_filled,
+                    missing: true
+                };
+            }
+
+            let tendVib = 0, tendTemp = 0;
+            if (Math.random() < 0.2) {
+                tendVib = 0.08;
+                tendTemp = 0.05;
+            }
+
+            const ultimo = historico.length > 0 ? historico[historico.length-1] : null;
+            let vib, temp, corriente, rpm;
+            if (!ultimo) {
+                vib = 5.0 + (Math.random()-0.5)*1.5;
+                temp = 70 + (Math.random()-0.5)*5;
+                corriente = 100 + (Math.random()-0.5)*10;
+                rpm = 1480 + Math.floor((Math.random()-0.5)*40);
+            } else {
+                vib = generarValorBase(ultimo, 'vib_filled', 5.0, 0.3, tendVib);
+                temp = generarValorBase(ultimo, 'temp_filled', 70, 0.4, tendTemp);
+                corriente = generarValorBase(ultimo, 'corriente_filled', 100, 2.0, 0);
+                rpm = generarValorBase(ultimo, 'rpm_filled', 1480, 8, 0);
+                rpm = Math.round(rpm);
+            }
+
+            return {
+                timestamp,
+                vib, temp, corriente, rpm,
+                missing: false
+            };
+        }
+
+        function aplicarForwardFill() {
+            let lastValid = null;
+            for (let i = 0; i < historico.length; i++) {
+                const p = historico[i];
+                if (!p.missing) {
+                    p.vib_filled = p.vib;
+                    p.temp_filled = p.temp;
+                    p.corriente_filled = p.corriente;
+                    p.rpm_filled = p.rpm;
+                    lastValid = p;
+                } else {
+                    if (lastValid) {
+                        p.vib_filled = lastValid.vib_filled;
+                        p.temp_filled = lastValid.temp_filled;
+                        p.corriente_filled = lastValid.corriente_filled;
+                        p.rpm_filled = lastValid.rpm_filled;
+                    } else {
+                        p.vib_filled = 5.0; p.temp_filled=70; p.corriente_filled=100; p.rpm_filled=1480;
+                    }
+                }
+            }
+        }
+
+        function calcularFeatures(i) {
+            if (i < 0 || i >= historico.length) return null;
+            const actual = historico[i];
+            let sumaVib = 0, count = 0;
+            for (let j = Math.max(0, i - WINDOW_ROLLING + 1); j <= i; j++) {
+                sumaVib += historico[j].vib_filled;
+                count++;
+            }
+            const vib_media = count > 0 ? sumaVib / count : actual.vib_filled;
+
+            let delta_temp = 0;
+            if (i - DIFF_PERIODS >= 0) {
+                delta_temp = actual.temp_filled - historico[i - DIFF_PERIODS].temp_filled;
+            } else {
+                delta_temp = 0;
+            }
+
+            const ratio = actual.corriente_filled / (actual.vib_filled + 1e-6);
+            return { vib_media, delta_temp, ratio };
+        }
+
+        // Pseudo-modelos (simulan XGB y LSTM)
+        function pseudoXGB(features, actual) {
+            let raw = 0;
+            raw += (actual.vib_filled - 5.0) * 0.25;
+            raw += (actual.temp_filled - 70) * 0.03;
+            raw += (actual.corriente_filled - 100) * 0.01;
+            raw += (1500 - actual.rpm_filled) * 0.002;
+            raw += (features.vib_media - 5.0) * 0.2;
+            raw += features.delta_temp * 0.1;
+            raw += (features.ratio - 20) * 0.02;
+            let prob = 1 / (1 + Math.exp(-raw));
+            return Math.min(0.99, Math.max(0.01, prob));
+        }
+
+        function pseudoLSTM() {
+            if (historico.length < LSTM_SEQ_LEN) return 0.3;
+            let pendiente = 0;
+            const n = LSTM_SEQ_LEN;
+            let sumaX = 0, sumaY = 0, sumaXY = 0, sumaXX = 0;
+            for (let k = 0; k < n; k++) {
+                let idx = historico.length - n + k;
+                let val = historico[idx].vib_filled;
+                sumaX += k;
+                sumaY += val;
+                sumaXY += k * val;
+                sumaXX += k * k;
+            }
+            const denom = sumaXX - (sumaX * sumaX) / n;
+            if (denom !== 0) {
+                pendiente = (sumaXY - (sumaX * sumaY) / n) / denom;
+            }
+            let rawLSTM = pendiente * 3.0;
+            let ultTemp = historico[historico.length-1].temp_filled;
+            let tempAnterior = historico[historico.length - Math.min(10, historico.length)].temp_filled;
+            let tempDelta = ultTemp - tempAnterior;
+            rawLSTM += tempDelta * 0.2;
+            let prob = 1 / (1 + Math.exp(-rawLSTM));
+            return Math.min(0.99, Math.max(0.01, prob));
+        }
+
+        // Calcula features y predicciones para el último punto
+        function calcularFeaturesYPredicciones() {
+            const idx = historico.length - 1;
+            const features = calcularFeatures(idx);
+            const ultimo = historico[idx];
+            const xgbProb = pseudoXGB(features, ultimo);
+            const lstmProb = pseudoLSTM();
+            const ensemble = 0.7 * xgbProb + 0.3 * lstmProb;
+            return { features, xgbProb, lstmProb, ensemble };
+        }
+
+        // Actualiza UI usando las predicciones ya guardadas en el último punto (si existen)
+        function actualizarUI() {
+            if (historico.length === 0) return;
+
+            const ultimo = historico[historico.length-1];
+            // Si el punto no tiene predicciones (carga inicial), las calculamos
+            if (ultimo.xgb === undefined) {
+                const { features, xgbProb, lstmProb, ensemble } = calcularFeaturesYPredicciones();
+                ultimo.features = features;
+                ultimo.xgb = xgbProb;
+                ultimo.lstm = lstmProb;
+                ultimo.ensemble = ensemble;
+            }
+
+            document.getElementById('timestampLabel').innerHTML = `<i class="far fa-clock"></i> ${ultimo.timestamp}`;
+
+            // Sensores (filled)
+            document.getElementById('vib_val').innerText = ultimo.vib_filled.toFixed(2) + (ultimo.missing ? ' (ffill)' : '');
+            document.getElementById('temp_val').innerText = ultimo.temp_filled.toFixed(1) + (ultimo.missing ? '*' : '');
+            document.getElementById('corriente_val').innerText = Math.round(ultimo.corriente_filled) + (ultimo.missing ? '*' : '');
+            document.getElementById('rpm_val').innerText = Math.round(ultimo.rpm_filled) + (ultimo.missing ? '*' : '');
+
+            // Features
+            if (ultimo.features) {
+                document.getElementById('vib_media').innerText = ultimo.features.vib_media.toFixed(2);
+                document.getElementById('delta_temp').innerText = ultimo.features.delta_temp.toFixed(2);
+                document.getElementById('ratio').innerText = ultimo.features.ratio.toFixed(2);
+            }
+
+            // Predicciones
+            document.getElementById('xgb_prob').innerText = ultimo.xgb.toFixed(3);
+            document.getElementById('lstm_prob').innerText = ultimo.lstm.toFixed(3);
+            document.getElementById('ens_prob').innerText = ultimo.ensemble.toFixed(3);
+
+            // Alerta
+            const alertaDiv = document.getElementById('alerta_estado');
+            if (ultimo.ensemble > 0.8) {
+                alertaDiv.className = 'alerta roja';
+                alertaDiv.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ALERTA ROJA';
+            } else if (ultimo.ensemble > 0.5) {
+                alertaDiv.className = 'alerta amarilla';
+                alertaDiv.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> PRECAUCIÓN';
+            } else {
+                alertaDiv.className = 'alerta';
+                alertaDiv.innerHTML = '<i class="fa-solid fa-circle-check"></i> NORMAL';
+            }
+
+            // Actualizar gráfico
+            actualizarGrafico();
+        }
+
+        function actualizarGrafico() {
+            const ultimos = historico.slice(-60);
+            const labels = ultimos.map(p => p.timestamp.slice(0,8));
+            const vibData = ultimos.map(p => p.vib_filled);
+            const tempData = ultimos.map(p => p.temp_filled);
+
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = vibData;
+            chart.data.datasets[1].data = tempData;
+            chart.update();
+        }
+
+        // Agregar un nuevo punto (missing opcional) y encolar a Firestore
+        function agregarPunto(missing = false) {
+            const prev = historico.length > 0 ? historico[historico.length-1] : null;
+            const nuevo = generarPunto(prev, missing);
+            historico.push(nuevo);
+            if (historico.length > MAX_HISTORY) {
+                historico.shift();
+            }
+            aplicarForwardFill();
+
+            // Calcular features y predicciones para este nuevo punto
+            const idx = historico.length - 1;
+            const features = calcularFeatures(idx);
+            const ultimo = historico[idx];
+            const xgbProb = pseudoXGB(features, ultimo);
+            const lstmProb = pseudoLSTM();
+            const ensemble = 0.7 * xgbProb + 0.3 * lstmProb;
+
+            // Guardar en el objeto
+            ultimo.features = features;
+            ultimo.xgb = xgbProb;
+            ultimo.lstm = lstmProb;
+            ultimo.ensemble = ensemble;
+
+            // Actualizar UI
+            actualizarUI();
+
+            // Enviar a Firestore (si está inicializado)
+            if (firebaseInicializado) {
+                const firestoreData = {
+                    timestamp: firebase.firestore.Timestamp.now(),
+                    vibration: ultimo.vib_filled,
+                    temperature: ultimo.temp_filled,
+                    current: ultimo.corriente_filled,
+                    rpm: ultimo.rpm_filled,
+                    missing: ultimo.missing || false,
+                    features: {
+                        vib_media: features.vib_media,
+                        delta_temp: features.delta_temp,
+                        ratio: features.ratio
+                    },
+                    predictions: {
+                        xgb: xgbProb,
+                        lstm: lstmProb,
+                        ensemble: ensemble
+                    }
+                };
+                addToFirestoreBuffer(firestoreData);
+            }
+        }
+
+        // Inicializar historia con 100 puntos
+        function inicializarHistoria() {
+            historico = [];
+            for (let i = 0; i < 100; i++) {
+                agregarPunto(false);
+            }
+        }
+
+        // Configurar gráfico
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    { label: 'Vibración (mm/s)', data: [], borderColor: '#e67e22', backgroundColor: 'rgba(230,126,34,0.05)', tension: 0.2, yAxisID: 'y' },
+                    { label: 'Temperatura (°C)', data: [], borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.05)', tension: 0.2, yAxisID: 'y1' }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'top' } },
+                scales: {
+                    y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Vibración' } },
+                    y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'Temperatura' }, grid: { drawOnChartArea: false } }
+                }
+            }
+        });
+
+        // Event listeners
+        document.getElementById('btnNuevoDato').addEventListener('click', () => {
+            agregarPunto(false);
+        });
+
+        document.getElementById('btnPerdida').addEventListener('click', () => {
+            agregarPunto(true);
+        });
+
+        document.getElementById('btnReset').addEventListener('click', () => {
+            inicializarHistoria();
+        });
+
+        // Arranque
+        inicializarHistoria();
+
+        // Simulación automática (opcional - comentado por defecto)
+        // setInterval(() => { agregarPunto(false); }, 2000);
+    })();
+</script>
+</body>
+</html>
