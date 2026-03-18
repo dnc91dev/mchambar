@@ -5,3 +5,4 @@ ejemplo de practica de simulacion de un entorno de mineria, simulacion de datos 
 
 
 
+![Static Badge](https://img.shields.io/badge/:badgeContent)
