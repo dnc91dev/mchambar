@@ -4,3 +4,5 @@ ejemplo de practica de simulacion de un entorno de mineria, simulacion de datos 
 [![GitHub](https://img.shields.io)](https://dnc91dev.github.io/mchambar/)
 
 ![Static Badge](https://img.shields.io/badge/:badgeContent)
+
+https://img.shields.io/badge/just%20the%20message-8A2BE2
