@@ -1,17 +1,3 @@
-#import firebase_admin
-#from firebase_admin import credentials, firestore
-
-
-# 1. Inicializar Firebase Admin SDK (con tu archivo de credenciales)
-# Asegúrate de subir el archivo JSON de tu clave privada de servicio a Colab
-# Ejemplo: cred = credentials.Certificate("ruta/a/tu/simchamber-648d9-firebase-adminsdk-xxxxx-xxxxxxx.json")
-# Alternativamente, si estás en un entorno GCP, las credenciales se auto-descubrirán
-#if not firebase_admin._apps: # Evita inicializar la app múltiples veces en Colab
-#    cred = credentials.Certificate("path/to/your/simchamber-648d9-adminsdk.json") # Reemplaza con la ruta correcta
-#    firebase_admin.initialize_app(cred)
-#from google.colab import drive
-#drive.mount('/content/drive/')
-
 import firebase_admin
 from firebase_admin import credentials, firestore
 import pandas as pd # Para convertir a DataFrame
