@@ -419,7 +419,7 @@
             sensorDataBuffer = []; // vaciar inmediatamente
 
             dataToSend.forEach(data => {
-                const docRef = db.collection("sensor_data").doc(); // ID automático
+                const docRef = db.collection("sensor_data_raw").doc(); // ID automático
                 batch.set(docRef, data);
             });
 
